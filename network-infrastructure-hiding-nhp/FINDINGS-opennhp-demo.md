@@ -107,6 +107,31 @@ graph TD
 | `nhp` | 3.144.213.172 | ❌ direct AWS | *(none)* | **not in CT — found by expansion** |
 | `js-agent` | opennhp.github.io / 185.199.x | GitHub Pages | — | static JS |
 
+## Supply-chain check — js-agent dependencies (via our `check-package`)
+
+We ran OpenNHP's npm manifests (`endpoints/js-agent/package.json`, `docs/package.json`) through
+our supply-chain checker (OSV-curated 215k-package deny-list + reputation). **Result: clean, and
+genuinely good hygiene.**
+
+| Package | Verdict | Risk | Downloads/mo | Note |
+|---------|---------|------|--------------|------|
+| `@noble/curves` | allow | 0 | 96.7M | paulmillr audited crypto — excellent choice |
+| `@noble/ciphers` | allow | 0 | 83.6M | audited crypto |
+| `cbor-x` | allow | 0 | 5.3M | established |
+| `sm-crypto-v2` | allow | 0 | 13.8k | SM2/3/4 (Chinese national crypto) — legit, lower-volume but 3+ yrs old |
+
+- **No malicious/typosquatted/removed packages.** None on our deny-list; none show the fresh-,
+  removed-, or dormancy-revival signals of the 2026 supply-chain campaigns.
+- **CVEs / exploitable chains: none identified.** These are current, well-maintained versions;
+  **none appear in our CISA KEV mirror**, and we did not identify a known-vulnerable dependency or
+  a confirmed exploitable chain through them. We state this plainly rather than manufacture one.
+- The only *candidate* soft spot in the whole assessment is infrastructure, not code: the exposed
+  support-tier host that Shodan tags `eol-product` — **unverified by us**, and not a confirmed
+  vulnerability. We did not probe it to establish exploitability, and we make no such claim.
+
+*Honest scope: absence of a finding is not proof of safety — pin and keep reviewing. But the
+supply chain here is in notably better shape than most projects we audit.*
+
 ## What this means for the NHP threat model (the actual contribution)
 
 NHP protects at the packet layer — authenticate-before-connect, ports invisible until an
@@ -137,3 +162,90 @@ we make **no** such claim. All indicators here are already public (CT logs, DNS,
 InternetDB). Offered to help the project harden its threat model, in the spirit of the challenge.
 
 *Reproduce it: `node ../recon-toolkit/origin-recon.js opennhp.org` — no key required.*
+
+---
+
+## Appendix — raw evidence from our tools (reproducible)
+
+All output below is verbatim from the tools in `recon-toolkit/`, run against public
+endpoints. No key required. Timestamps/data reflect the run; re-run to reproduce.
+
+### `node recon-toolkit/origin-recon.js opennhp.org`
+
+```
+
+=== origin-recon · opennhp.org · public evidence only, no packets to target ===
+
+[CT] 10 distinct hostnames in Certificate Transparency for opennhp.org:
+     agent.opennhp.org
+     relay.opennhp.org
+     demologin.opennhp.org
+     acdemo.opennhp.org
+     auth-plugin.opennhp.org
+     ac.opennhp.org
+     js-agent.opennhp.org
+     opennhp.org
+     ac2.opennhp.org
+     reg.opennhp.org
+
+[DNS] resolving 1 candidate host(s):
+     opennhp.org -> 172.67.163.99, 104.21.81.186
+
+[ENRICH] 2 distinct IP(s) via DugganUSA public enrichment (Shodan + AbuseIPDB):
+     172.67.163.99 · ports [80,443,2052,2053,2082,2083,2086,2087,2095,2096,8080,8443,8880] · rev-dns [—] · abuse 0/100 · Cloudflare, Inc.
+     104.21.81.186 · ports [80,443,2052,2053,2082,2083,2086,2087,2095,2096,8080,8443,8880] · rev-dns [webmail.psnacet.edu.in] · abuse 0/100 · Cloudflare, Inc.
+
+[LESSON for the OpenNHP threat model] Everything above came from public evidence
+the packet-layer hiding does not govern. A hiding protocol should assume its origins
+leak via CT + DNS + Shodan and pair with an L7 origin-validation control (host-shield).
+```
+
+### Component resolution — CT-leaked hostnames → origin IPs (`dig`)
+
+```
+agent.opennhp.org        -> 3.149.105.15 
+relay.opennhp.org        -> 3.149.105.15 
+demologin.opennhp.org    -> 3.149.215.44 
+acdemo.opennhp.org       -> 3.151.225.91 
+auth-plugin.opennhp.org  -> 3.149.215.44 
+ac.opennhp.org           -> 3.151.225.91 
+ac2.opennhp.org          -> 3.151.110.18 
+reg.opennhp.org          -> 3.149.105.15 
+nhp.opennhp.org          -> 3.144.213.172 
+server.opennhp.org       -> 3.149.215.44 
+```
+
+### `node recon-toolkit/enrich.js` — the two exposed support-tier hosts (Shodan + AbuseIPDB)
+
+```
+=== DugganUSA enrichment · 3.149.105.15 (ip) · 2026-07-21T16:00:33.861Z ===
+  Shodan (internetdb): FOUND · ports [443] · hostnames [ec2-3-149-105-15.us-east-2.compute.amazonaws.com, agent.opennhp.org, relay.opennhp.org] · tags [cloud]
+  AbuseIPDB: score 0/100 · United States of America · Amazon Technologies Inc. · Data Center/Web Hosting/Transit · 0 reports
+=== DugganUSA enrichment · 3.149.215.44 (ip) · 2026-07-21T16:00:34.603Z ===
+  Shodan (internetdb): FOUND · ports [443] · hostnames [ec2-3-149-215-44.us-east-2.compute.amazonaws.com, demologin.opennhp.org, auth-plugin.opennhp.org] · tags [eol-product, cloud]
+  AbuseIPDB: score 0/100 · United States of America · Amazon Technologies Inc. · Data Center/Web Hosting/Transit · 0 reports
+
+# AC tier — IP known, ports dark (NHP hiding holds):
+=== DugganUSA enrichment · 3.151.225.91 (ip) · 2026-07-21T16:00:32.813Z ===
+  Shodan (internetdb): not found
+=== DugganUSA enrichment · 3.144.213.172 (ip) · 2026-07-21T16:01:41.538Z ===
+  Shodan (internetdb): not found
+```
+
+### Supply-chain — `jeevesus check-package` on js-agent crypto deps
+
+```
+sm-crypto-v2   -> allow · risk 0 · age 1141d · 13,830 dl/mo
+@noble/ciphers -> allow · risk 0 · age 1118d · 83,587,628 dl/mo
+@noble/curves  -> allow · risk 0 · age 1324d · 96,680,788 dl/mo
+cbor-x         -> allow · risk 0 · age 2066d · 5,302,566 dl/mo
+(no malicious/typosquat/dormancy-revival; none in CISA KEV)
+```
+
+### Threat-corpus graph-weigh — `jeevesus search` over iocs/blocked/adversaries/pulses
+
+```
+query: opennhp.org + 4 origin IPs
+result: 0 corroborating hits (matches were unrelated OTX country-pulses)
+verdict: CLEAN — legitimate demo infrastructure, no threat attribution
+```
