@@ -67,4 +67,10 @@ adversaries. That is the gap we can fill.
 Patrick Duggan — DugganUSA LLC · https://www.dugganusa.com · STIX feed:
 https://analytics.dugganusa.com/api/v1/stix-feed
 
+**Collaboration, co-authoring, replication, and distribution/partnership inquiries are welcome —
+`pitch@dugganusa.com`.** We are a registered U.S. business (D-U-N-S 14-363-3562, SAM UEI
+TP9FY7262K87) and are set up to work through **in-region partners and resellers** where local
+presence, invoicing, or procurement is the right structure. If you champion a draft here and want
+the empirical grounding worked up further, say so — that's what this is for.
+
 *Built with the same daily-sweep discipline that produced the analysis IETF 126 cited.*
